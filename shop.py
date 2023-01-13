@@ -9,20 +9,9 @@ from ast import literal_eval
 import pyfiglet
 
 
-'''
-收藏夹商品个数限制最多 16 个
-
-两种模式：
-    狙击手模式：针对单一一个商品进行监听
-    正常模式：对收藏夹所有商品进行监听
-
-购买商品：
-    商品价格低于 设置的价格就购买，否则继续看下一个商品
-    购买时按照当前余额购买，余额充足的情况下默认买断，余额不足以买断则能买多少就买多少
-    如果余额比商品单价少则放弃购买，继续看下一个商品
-    如果商品没有卖单，继续看下一个商品
-
-'''
+"""
+纯同步初版
+"""
 
 
 收藏夹商品个数 = 14
@@ -36,6 +25,7 @@ two_index = [292, 243, 530, 271]
 商品列表 = {}
 
 cnocr = CnOcr()
+
 
 def LoadImage(tag, path) -> Image.Image:
     try:
@@ -139,10 +129,34 @@ def 添加日志(data):
         f1.write(f'{datetime.datetime.now()} ------ {str(data)}\n')
 
 
+def 购买数量(num):
+    point = { # stepX 150  stepY 90
+        "1": [827 + randint(10, 110), 326 + randint(10, 50)],
+        "2": [977 + randint(10, 110), 326 + randint(10, 50)],
+        "3": [1127 + randint(10, 110), 326 + randint(10, 50)],
+        "4": [827 + randint(10, 110), 416 + randint(10, 50)],
+        "5": [977 + randint(10, 110), 416 + randint(10, 50)],
+        "6": [1127 + randint(10, 110), 416 + randint(10, 50)],
+        "7": [827 + randint(10, 110), 506 + randint(10, 50)],
+        "8": [977 + randint(10, 110), 506 + randint(10, 50)],
+        "9": [1127 + randint(10, 110), 506 + randint(10, 50)],
+        "0": [977 + randint(10, 110), 596 + randint(10, 50)]
+    }
+
+    num_list = list(str(num))
+    ret = []
+    for num in num_list:
+        ret.append(point[num])
+
+    return ret
+
+
 def 购物():
     向下滑屏幕()
     time.sleep(2)
     商品位置列表 = 商品列表.copy()
+    global 配置文件商品列表
+    本地配置文件商品列表 = 配置文件商品列表
 
     for 商品名字, 商品位置 in 商品位置列表.items():
         if list(商品位置列表.keys())[8] == 商品名字:
@@ -159,7 +173,8 @@ def 购物():
 
         if res == [] or '购买' != res[0]["text"]:
             # 关闭
-            print(商品名字, "：没有卖单")
+            img.close()
+            crop_img.close()
             system(f"adb -s {device[1]} shell input tap {1134 + randint(2, 16)} {78 + randint(2, 18)}")
             continue
 
@@ -167,14 +182,72 @@ def 购物():
         res = cnocr.ocr(crop_img)
         钱 = list(res[0]["text"])
         del 钱[-2:len(钱)]
-        print(商品名字, ": ", (("".join(钱)).replace(",", "").replace('.', '') + ".0"))
+
+        价格 = int((("".join(钱)).replace(",", "").replace('.', '').replace('O', '0').replace('o', '0')))
+
+        # 价格比对
+        # 现获得的价格与配置文件的价格比对，前者小于等于后者则购买，
+        # 如果设置了提醒，则通过QQ机器人提醒
+        # 如果提醒之后，需要购买，通过输入命令更改配置文件，然后重载全局 配置文件商品列表 变量
+        配置文件价格 = int(本地配置文件商品列表[商品名字][0])
+        if 价格 > 配置文件价格:
+            # 关闭
+            img.close()
+            crop_img.close()
+            system(f"adb -s {device[1]} shell input tap {1134 + randint(2, 10)} {78 + randint(2, 10)}")
+            continue
+
+        if 本地配置文件商品列表[商品名字][1]:
+            # QQ提醒 购买数量、自动买断、不买
+            pass
+        
+        # 不提醒
+        配置文件购买数量 = int(本地配置文件商品列表[商品名字][2]) # 1-99999999999999区间
+        # 点击购买
+        system(f"adb -s {device[1]} shell input tap {996 + randint(10, 160)} {312 + randint(10, 55)}")
+        # 打开输入框
+        system(f"adb -s {device[1]} shell input tap {415 + randint(10, 140)} {601 + randint(10, 30)}")
+        # 获取余额
+        time.sleep(2)
+        获取截图(device[1], device[0])
+        time.sleep(1)
+        img = LoadImage(device[0], path)
+        crop_img = crop(71, 642, 324, 698, img)
+        res = cnocr.ocr(crop_img)
+        余额_r = res[0]["text"]
+        余额 = int((("".join(余额_r)).replace(",", "").replace('.', '').replace('O', '0').replace('o', '0')))
+        if (配置文件购买数量 * 价格) > 余额:
+            添加日志(f"购买 [{商品名字}]---数量:{配置文件购买数量}  失败：isk不足；当前余额{余额}；所需isk: {配置文件购买数量 * 价格}")
+
+            img.close()
+            crop_img.close()            
+            system(f"adb -s {device[1]} shell input tap {200 + randint(2, 10)} {150 + randint(2, 10)}")
+            time.sleep(1)
+            system(f"adb -s {device[1]} shell input tap {200 + randint(2, 10)} {150 + randint(2, 10)}")
+            time.sleep(1)
+            system(f"adb -s {device[1]} shell input tap {1134 + randint(2, 10)} {78 + randint(2, 10)}")
+            continue
+
+        point_list = 购买数量(配置文件购买数量)
+        for point in point_list:
+            system(f"adb -s {device[1]} shell input tap {point[0]} {point[1]}")
+            time.sleep(0.5)
+
+        # 确认购买：
+        system(f"adb -s {device[1]} shell input tap {1127 + randint(10, 110)} {596 + randint(10, 50)}")
+        time.sleep(1)
+        system(f"adb -s {device[1]} shell input tap {693 + randint(10, 140)} {597 + randint(10, 30)}")
+        time.sleep(1)
+        添加日志(f"购买 [{商品名字}]---数量:{配置文件购买数量}  成功；剩余余额{余额 - (配置文件购买数量 * 价格)}")
 
         # 关闭
-        system(f"adb -s {device[1]} shell input tap {1134 + randint(2, 16)} {78 + randint(2, 18)}")
+        img.close()
+        crop_img.close()
+        system(f"adb -s {device[1]} shell input tap {1134 + randint(2, 10)} {78 + randint(2, 10)}")
 
 
-if __name__ == "__main__":
-    # 获取截图(device, device)
+if __name__ == "____":
+    # 获取截图(device[1], device[0])
     # exit()
 
     print(pyfiglet.figlet_format("Sugobet\n"))
@@ -187,7 +260,7 @@ if __name__ == "__main__":
     配置文件内容 = 读取配置文件()
     if 配置文件内容 == False:
         for 本地商品 in 本地商品列表.keys():
-            _new_conf[本地商品] = ['价格', 0]
+            _new_conf[本地商品] = ['价格', False, '购买数量']
         设置配置文件(_new_conf)
         print(f'请设置好配置文件再运行脚本\n配置文件所在路径: {path}/shop.config')
         exit()
