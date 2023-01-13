@@ -1,3 +1,9 @@
+# by Sugobet 
+# qq 321355478
+
+# 720x1280
+
+
 from os import system, path as Path
 import datetime
 from PIL import Image
@@ -26,9 +32,35 @@ _脚本运行状态 = 0
 
 商品 = on_command("商品", priority=5)
 脚本 = on_command("脚本", priority=5)
+菜单 = on_command("菜单", priority=5)
 
 是否购买 = None
 等待是否购买 = 0
+
+
+@菜单.handle()
+async def _(bot: Bot, event: Event, state: T_State, matcher: Matcher):
+    cmds = """
+------商品类命令------
+设置了价格提醒，用于确认是否购买 命令：/商品 不购买
+设置了价格提醒，用于确认是否购买 命令：/商品 购买
+设置脚本收藏夹商品个数参数 每次启动时都需要设置 命令：/商品 设置收藏夹商品个数 商品数量
+设置指定商品的购买价格 命令：/商品 设置购买价格 商品名字 价格
+设置指定商品的购买数量 命令：/商品 设置购买数量 商品名字 数量
+设置指定商品购买时QQ提醒 命令：/商品 设置提醒 商品名字 提醒
+设置指定商品购买时(不)QQ提醒 命令：/商品 设置提醒 商品名字 不提醒
+
+------脚本类命令------
+启动脚本 命令：/脚本 启动
+停止脚本 命令：/脚本 停止
+查看日志 命令： /脚本 查看日志
+清空日志 命令：/脚本 清空日志
+查看商品的配置 命令：/脚本 查看配置
+查看脚本是否正在运行 命令：/脚本 脚本状态
+删除配置文件商品，一般用于脚本识别出错导致配置文件添加了错误的数据，使用该命令可以手动删除错误的数据 命令：/脚本 删除配置文件商品 商品名字
+"""
+    await matcher.send(cmds)
+
 
 @商品.handle()
 async def _(bot: Bot, event: Event, state: T_State, matcher: Matcher):
@@ -72,7 +104,8 @@ async def _(bot: Bot, event: Event, state: T_State, matcher: Matcher):
                 return
             本地配置文件列表[msg_list[2]][0] = msg_list[3]
             设置配置文件(本地配置文件列表)
-            配置文件商品列表[msg_list[2]][0] = 本地配置文件列表[msg_list[2]][0]
+            if 配置文件商品列表 != None:
+                配置文件商品列表[msg_list[2]][0] = 本地配置文件列表[msg_list[2]][0]
             await matcher.send(f'商品：{msg_list[2]}\n更新价格：{msg_list[3]}\n更改价格成功 （更改立即生效，无需重启脚本）')
             return
 
@@ -86,7 +119,8 @@ async def _(bot: Bot, event: Event, state: T_State, matcher: Matcher):
             elif msg_list[3] == "不提醒":
                 本地配置文件列表[msg_list[2]][1] = False
             设置配置文件(本地配置文件列表)
-            配置文件商品列表[msg_list[2]][1] = 本地配置文件列表[msg_list[2]][1]
+            if 配置文件商品列表 != None:
+                配置文件商品列表[msg_list[2]][1] = 本地配置文件列表[msg_list[2]][1]
             await matcher.send(f'商品：{msg_list[2]}\n是否提醒：{msg_list[3]}\n设置成功 （更改立即生效，无需重启脚本）')
             return
 
@@ -97,7 +131,8 @@ async def _(bot: Bot, event: Event, state: T_State, matcher: Matcher):
                 return
             本地配置文件列表[msg_list[2]][2] = msg_list[3]
             设置配置文件(本地配置文件列表)
-            配置文件商品列表[msg_list[2]][2] = 本地配置文件列表[msg_list[2]][2]
+            if 配置文件商品列表 != None:
+                配置文件商品列表[msg_list[2]][2] = 本地配置文件列表[msg_list[2]][2]
             await matcher.send(f'商品：{msg_list[2]}\n更改购买数量：{msg_list[3]}\n设置成功 （更改立即生效，无需重启脚本）')
             return
 
@@ -110,6 +145,7 @@ async def _(bot: Bot, event: Event, state: T_State, matcher: Matcher):
     if len(msg_list) == 1:
         await matcher.send("脚本-命令菜单 --- 开发中")
         return
+
     if len(msg_list) == 2:
         if msg_list[1] == "启动":
             if _脚本运行状态:
@@ -137,7 +173,11 @@ async def _(bot: Bot, event: Event, state: T_State, matcher: Matcher):
             return
 
         if msg_list[1] == "查看日志":
-            await matcher.send(读取日志())
+            try:
+                await matcher.send(读取日志())
+            except:
+                await matcher.send(f'读取日志失败---由于日志数据量过大，无法发送\n请使用命令清理日志或自行手动查看日志文件\n日志文件所在路径：{path}/shop.log')
+                return
             return
 
         if msg_list[1] == "清空日志":
@@ -146,9 +186,10 @@ async def _(bot: Bot, event: Event, state: T_State, matcher: Matcher):
             return
 
         if msg_list[1] == "查看配置":
+            配文列表 = literal_eval(读取配置文件())
             str1 = ""
-            for 商品名字, 值 in 配置文件商品列表.items():
-                str1 += f'商品名字：{商品名字}\n购买价格：{值[0]}\n购买数量：{值[2]}\n是否提醒：{"提醒" if 值[1] else "不提醒"}\n----------------'
+            for 商品名字, 值 in 配文列表.items():
+                str1 += f'商品名字：{商品名字}\n购买价格：{值[0]}\n购买数量：{值[2]}\n是否提醒：{"提醒" if 值[1] else "不提醒"}\n----------------\n'
             await matcher.send(str1)
             return
 
@@ -159,8 +200,21 @@ async def _(bot: Bot, event: Event, state: T_State, matcher: Matcher):
             await matcher.send('脚本运行状态: 已停止')
             return
 
+    if len(msg_list) == 3:
+        if msg_list[1] == '删除配置文件商品':
+            本地配置文件列表 = literal_eval(读取配置文件())
+            if msg_list[2] not in 本地配置文件列表.keys():
+                await matcher.send(f'失败；{msg_list[2]} 未在配置文件内')
+                return
+            del 本地配置文件列表[msg_list[2]]
+            设置配置文件(本地配置文件列表)
+            if 配置文件商品列表 != None:
+                del 配置文件商品列表[msg_list[2]]
+            await matcher.send(f'删除配置文件商品：{msg_list[2]}\n删除成功 （更改立即生效，无需重启脚本）')
+            return
 
-收藏夹商品个数 = 6
+
+收藏夹商品个数 = 5
 模式 = 1
 
 path = 'C:/Users/sugob/Desktop/shop'
@@ -177,8 +231,7 @@ cnocr = CnOcr()
 def LoadImage(tag, path) -> Image.Image:
     try:
         img = Image.open(f'{path}/{tag}.png')
-    except Exception as e:
-        添加日志(f'错误：{e}')
+    except Exception:
         time.sleep(3)
         return LoadImage(tag, path)
     return img
@@ -192,8 +245,8 @@ def crop(x1, y1, x2, y2, img: Image.Image) -> Image.Image:
     newimg = None
     try:
         newimg = img.crop((x1, y1, x2, y2))
-    except Exception as e :
-        添加日志(f'错误：{e}')
+    except Exception:
+        pass
     return newimg
 
 
@@ -326,7 +379,7 @@ async def 购物(bot: Bot):
 
     向下滑屏幕()
     await asyncio.sleep(2)
-    商品位置列表 = 商品列表.copy()
+    商品位置列表 = 商品列表
     global 配置文件商品列表
     本地配置文件商品列表 = 配置文件商品列表
 
@@ -358,7 +411,7 @@ async def 购物(bot: Bot):
         钱 = list(res[0]["text"])
         del 钱[-2:len(钱)]
 
-        价格 = int((("".join(钱)).replace(",", "").replace('.', '').replace('O', '0').replace('o', '0').replace('U', '0').replace('L', '0')))
+        价格 = int((("".join(钱)).replace(",", "").replace('.', '').replace('O', '0').replace('o', '0').replace('U', '0').replace('L', '0').replace(' ', '').replace('/', '7').replace('·', '0').replace('b', '6').replace('P', '2').replace('I', '1').replace('G', '6').replace('B', '6').replace('C', '6')))
 
         # 价格比对
         # 现获得的价格与配置文件的价格比对，前者小于等于后者则购买，
@@ -411,15 +464,24 @@ async def 购物(bot: Bot):
         system(f"adb -s {device[1]} shell input tap {996 + randint(10, 160)} {312 + randint(10, 55)}")
         # 打开输入框
         system(f"adb -s {device[1]} shell input tap {415 + randint(10, 140)} {601 + randint(10, 30)}")
+        await asyncio.sleep(1)
         # 获取余额
         await asyncio.sleep(2)
         获取截图(device[1], device[0])
         await asyncio.sleep(1)
         img = LoadImage(device[0], path)
-        crop_img = crop(71, 642, 324, 698, img)
+        crop_img = crop(71, 656, 325, 688, img)
         res = cnocr.ocr(crop_img)
         余额_r = res[0]["text"]
-        余额 = int((("".join(余额_r)).replace(",", "").replace('.', '').replace('O', '0').replace('o', '0').replace('U', '0').replace('L', '0')))
+        async def getYE():
+            try:
+                return int((("".join(余额_r)).replace(",", "").replace('.', '').replace('O', '0').replace('o', '0').replace('U', '0').replace('L', '0').replace(' ', '').replace('/', '7').replace('·', '0').replace('b', '6').replace('P', '2').replace('I', '1').replace('G', '6').replace('B', '6').replace('C', '6')))
+            except Exception as e:
+                添加日志(str(e))
+                await asyncio.sleep(1)
+                return await getYE()
+        余额 = await getYE()
+
         if (配置文件购买数量 * 价格) > 余额:
             添加日志(f"购买 [{商品名字}]---数量:{配置文件购买数量}  失败：isk不足；当前余额{余额}；所需isk: {配置文件购买数量 * 价格}")
 
